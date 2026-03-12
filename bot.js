@@ -112,7 +112,6 @@ async function connect() {
   socket.on("login", (data) => {
     if (data.success) {
       console.log(`[GhoulBot] Logged in as ${data.name}`);
-      sendChat("The ghoul is present. Type !help for commands.");
     }
   });
 
