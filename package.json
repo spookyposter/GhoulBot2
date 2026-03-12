@@ -1,0 +1,14 @@
+{
+  "name": "ghoulbot",
+  "version": "1.0.0",
+  "description": "A ghoulish CyTube chat bot with AI personality",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "node-fetch": "^2.7.0",
+    "socket.io-client": "^2.5.0"
+  }
+}
