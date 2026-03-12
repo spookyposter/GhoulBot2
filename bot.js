@@ -1,6 +1,7 @@
 const io = require("socket.io-client");
 const Anthropic = require("@anthropic-ai/sdk");
 const fetch = require("node-fetch");
+const Groq = require("groq-sdk");
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -18,6 +19,9 @@ const CONFIG = {
   },
   wolframAlpha: {
     apiKey: process.env.WOLFRAM_API_KEY || "", // free tier at wolfram|alpha
+  },
+  groq: {
+    apiKey: process.env.GROQ_API_KEY || "",
   },
   bot: {
     commandPrefix: "!",
@@ -153,6 +157,7 @@ HARD RULES:
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 const anthropic = new Anthropic({ apiKey: CONFIG.anthropic.apiKey });
+const groq = new Groq({ apiKey: CONFIG.groq.apiKey });
 let socket = null;
 let currentMedia = null;
 const cooldowns = new Map();
@@ -512,21 +517,24 @@ async function handleAIResponse(username, message, returnOnly = false) {
   if (history.length > 6) history.splice(0, 2);
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
+    const systemMsg = SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}`;
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
       max_tokens: 200,
-      system: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}`,
-      messages: history,
+      messages: [
+        { role: "system", content: systemMsg },
+        ...history,
+      ],
     });
 
-    const text = truncate(response.content[0]?.text || "...", CONFIG.bot.maxResponseLength);
+    const text = truncate(response.choices[0]?.message?.content || "...", CONFIG.bot.maxResponseLength);
     history.push({ role: "assistant", content: text });
 
     if (!returnOnly) sendChat(`@${username} ${text}`);
     return text;
   } catch (err) {
-    console.error("[GhoulBot] AI error:", err.message);
-    return "My spectral connection to the beyond is disrupted. Try again.";
+    console.error("[GhoulBot] Groq error:", err.message);
+    return "something broke. try again.";
   }
 }
 
