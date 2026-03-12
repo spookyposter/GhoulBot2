@@ -382,7 +382,7 @@ async function wolframQuery(query) {
     const res = await fetch(url);
     if (!res.ok) throw new Error("Wolfram failed");
     const text = await res.text();
-    return `*consults ancient scrolls* ${text}`;
+    return `${text}`;
   } catch (err) {
     return await getAIOneliner(`Answer this factual question concisely in character: ${query}`);
   }
@@ -416,6 +416,13 @@ setInterval(() => {
     connect();
   }
 }, 30000);
+
+// Keepalive ping — prevents CyTube from dropping idle connections
+setInterval(() => {
+  if (socket && socket.connected) {
+    socket.emit("ping");
+  }
+}, 20000);
 
 process.on("SIGTERM", () => {
   console.log("[GhoulBot] Returning to the tomb. Farewell.");
