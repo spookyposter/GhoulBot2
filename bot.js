@@ -317,8 +317,13 @@ const COMMANDS = {
   },
 
   trivia: {
-    desc: "Random movie trivia",
-    fn: async () => await getAIOneliner("Give one obscure, interesting movie trivia fact. Short and punchy."),
+    desc: "Random movie trivia — about current movie if playing",
+    fn: async () => {
+      if (currentMedia && currentMedia.title) {
+        return await getAIOneliner(`Give one obscure, interesting trivia fact about "${currentMedia.title}". If you don't know the exact movie, give trivia about something closely related. Short and punchy.`);
+      }
+      return await getAIOneliner("Give one obscure, interesting horror or cult movie trivia fact. Short and punchy.");
+    },
   },
 
   rip: {
