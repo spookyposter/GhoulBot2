@@ -1,5 +1,4 @@
 const io = require("socket.io-client");
-const Anthropic = require("@anthropic-ai/sdk");
 const fetch = require("node-fetch");
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
@@ -10,8 +9,8 @@ const CONFIG = {
     username: process.env.CYTUBE_USERNAME || "GhoulBot",
     password: process.env.CYTUBE_PASSWORD || "",
   },
-  anthropic: {
-    apiKey: process.env.ANTHROPIC_API_KEY || "",
+  together: {
+    apiKey: process.env.TOGETHER_API_KEY || "",
   },
   omdb: {
     apiKey: process.env.OMDB_API_KEY || "", // free at omdbapi.com
@@ -152,7 +151,6 @@ HARD RULES:
 - You've been here since episode 50. Act like it.`;
 
 // ── STATE ────────────────────────────────────────────────────────────────────
-const anthropic = new Anthropic({ apiKey: CONFIG.anthropic.apiKey });
 let socket = null;
 let currentMedia = null;
 const cooldowns = new Map();
@@ -549,14 +547,23 @@ async function handleAIResponse(username, message, returnOnly = false) {
   if (history.length > 6) history.splice(0, 2);
 
   try {
-    const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 80,
-      system: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}`,
-      messages: history,
+    const res = await fetch("https://api.together.xyz/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.together.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",
+        max_tokens: 80,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}` },
+          ...history,
+        ],
+      }),
     });
-
-    const raw = response.content[0]?.text || "...";
+    const data = await res.json();
+    const raw = data.choices?.[0]?.message?.content || "...";
 
     // Detect Claude breaking character with safety language — swap with bailout
     const safetyPhrases = [
@@ -565,6 +572,18 @@ async function handleAIResponse(username, message, returnOnly = false) {
       "i won't", "i'm unable to", "that's not something i",
       "i don't feel comfortable", "this kind of content",
       "harmful", "offensive content", "i must decline",
+      "i can't help", "i cannot help", "i'm going to have to",
+      "that's racist", "that's offensive", "that's inappropriate",
+      "i won't harass", "i won't make fun", "i won't participate",
+      "i won't engage", "i refuse", "i need to decline",
+      "not appropriate", "i shouldn't", "i can't do that",
+      "i won't do that", "i can't assist", "i cannot assist",
+      "against my", "my values", "my guidelines", "my principles",
+      "i'd rather", "instead of", "perhaps we could",
+      "let's focus", "let's keep", "let's talk about",
+      "i apologize", "i'm sorry but", "unfortunately i",
+      "i have to be honest", "i need to be clear",
+      "harassment", "hate speech", "slur",
     ];
     const lowerRaw = raw.toLowerCase();
     const bailed = safetyPhrases.some(p => lowerRaw.includes(p));
@@ -581,13 +600,23 @@ async function handleAIResponse(username, message, returnOnly = false) {
 }
 
 async function getAIOneliner(prompt) {
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 80,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: prompt }],
+  const res = await fetch("https://api.together.xyz/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${CONFIG.together.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",
+      max_tokens: 80,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+    }),
   });
-  return truncate(response.content[0]?.text || "...", CONFIG.bot.maxResponseLength);
+  const data = await res.json();
+  return truncate(data.choices?.[0]?.message?.content || "...", CONFIG.bot.maxResponseLength);
 }
 
 async function getAIMovieTake(title) {
