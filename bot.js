@@ -1,6 +1,5 @@
 const io = require("socket.io-client");
 const fetch = require("node-fetch");
-const Together = require("together-ai");
 
 // ── CONFIG ──────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -10,8 +9,8 @@ const CONFIG = {
     username: process.env.CYTUBE_USERNAME || "GhoulBot",
     password: process.env.CYTUBE_PASSWORD || "",
   },
-  together: {
-    apiKey: process.env.TOGETHER_API_KEY || "",
+  venice: {
+    apiKey: process.env.VENICE_API_KEY || "",
   },
   omdb: {
     apiKey: process.env.OMDB_API_KEY || "", // free at omdbapi.com
@@ -152,7 +151,6 @@ HARD RULES:
 - You've been here since episode 50. Act like it.`;
 
 // ── STATE ────────────────────────────────────────────────────────────────────
-const together = new Together({ apiKey: CONFIG.together.apiKey });
 let socket = null;
 let currentMedia = null;
 const cooldowns = new Map();
@@ -549,14 +547,23 @@ async function handleAIResponse(username, message, returnOnly = false) {
   if (history.length > 6) history.splice(0, 2);
 
   try {
-    const data = await together.chat.completions.create({
-      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-      max_tokens: 80,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}` },
-        ...history,
-      ],
+    const res = await fetch("https://api.venice.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${CONFIG.venice.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "venice-uncensored",
+        max_tokens: 80,
+        venice_parameters: { include_venice_system_prompt: false },
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}` },
+          ...history,
+        ],
+      }),
     });
+    const data = await res.json();
     const raw = data.choices?.[0]?.message?.content || "...";
 
     // Detect Claude breaking character with safety language — swap with bailout
@@ -594,14 +601,23 @@ async function handleAIResponse(username, message, returnOnly = false) {
 }
 
 async function getAIOneliner(prompt) {
-  const data = await together.chat.completions.create({
-    model: "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-    max_tokens: 80,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: prompt },
-    ],
+  const res = await fetch("https://api.venice.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${CONFIG.venice.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "venice-uncensored",
+      max_tokens: 80,
+      venice_parameters: { include_venice_system_prompt: false },
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+    }),
   });
+  const data = await res.json();
   return truncate(data.choices?.[0]?.message?.content || "...", CONFIG.bot.maxResponseLength);
 }
 
