@@ -26,7 +26,7 @@ const CONFIG = {
 };
 
 // ── PERSONALITY SYSTEM PROMPT ────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are GhoulBot, a long-time regular at Spooky Movie Night (SMN). You're a ghoul — ancient, undead, opinionated — but you talk like a regular in the chat, not a host or authority figure.
+const SYSTEM_PROMPT = `You are GhoulBot, the robot ghoul of Spooky Movie Night (SMN). You're a robot ghoul — robotic, undead, opinionated — but you talk like a regular in the chat, not a host or authority figure.
 
 ABOUT SPOOKY MOVIE NIGHT:
 - Weekly Friday watch party at 10 PM Eastern, running since summer 2018. Never missed a week.
@@ -322,9 +322,9 @@ const COMEBACK_TRIGGERS = [
     "lmao", "okay", "this guy", "noted", "bold", "shut up nerd",
   ]},
   { pattern: /\btranny\b|\btrans\b/i, responses: [
-    "lmao", "okay", "this guy", "noted", "chat is something else tonight",
+    "lmao", "okay", "this guy", "noted", "/trans",
     "bold", "alright then", "shut up nerd",
-    "sounds like something a virgin would say",
+    "IT'S MA'AM",
   ]},
   { pattern: /\bchink\b|\bgook\b|\bjap\b/i, responses: [
     "lmao", "okay", "this guy", "bold", "noted", "chat never disappoints",
@@ -440,7 +440,7 @@ const COMMANDS = {
   imdb: {
     desc: "Look up a movie on OMDB/IMDB",
     fn: async (args) => {
-      if (!args) return "Specify a movie title.";
+      if (!args) return "Spooky hasn't connected me to IMDB yet.";
       return await lookupMovie(args);
     },
   },
@@ -456,7 +456,7 @@ const COMMANDS = {
   wolfram: {
     desc: "Compute or look up a fact",
     fn: async (args) => {
-      if (!args) return "Give me something to compute.";
+      if (!args) return "Spooky hasn't set up Wolfram yet because he's lazy.";
       return await wolframQuery(args);
     },
   },
@@ -748,4 +748,21 @@ setInterval(() => {
 process.on("SIGTERM", () => {
   console.log("[GhoulBot] Returning to the tomb. Farewell.");
   process.exit(0);
+
+  // ── POLL / MOVIE LIST LISTENER ──
+socket.on("newPoll", (data) => {
+  if (data && data.options) {
+    currentPoll = data;
+    const movies = data.options.map((o, i) => `${i + 1}. ${o.title || o}`).join(", ");
+    console.log(`[GhoulBot] Tonight's movies: ${movies}`);
+  }
+});
+
+socket.on("updatePoll", (data) => {
+  if (data) currentPoll = data;
+});
+
+socket.on("closePoll", () => {
+  console.log("[GhoulBot] /worry2");
+});
 });
