@@ -728,6 +728,8 @@ function truncate(str, max) {
 }
 
 // ── STARTUP ───────────────────────────────────────────────────────────────────
+let currentPoll = null;
+
 connect();
 
 // Reconnect loop
@@ -748,21 +750,4 @@ setInterval(() => {
 process.on("SIGTERM", () => {
   console.log("[GhoulBot] Returning to the tomb. Farewell.");
   process.exit(0);
-
-  // ── POLL / MOVIE LIST LISTENER ──
-socket.on("newPoll", (data) => {
-  if (data && data.options) {
-    currentPoll = data;
-    const movies = data.options.map((o, i) => `${i + 1}. ${o.title || o}`).join(", ");
-    console.log(`[GhoulBot] Tonight's movies: ${movies}`);
-  }
-});
-
-socket.on("updatePoll", (data) => {
-  if (data) currentPoll = data;
-});
-
-socket.on("closePoll", () => {
-  console.log("[GhoulBot] /worry2");
-});
 });
