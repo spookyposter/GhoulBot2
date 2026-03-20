@@ -1,5 +1,6 @@
 const io = require("socket.io-client");
 const fetch = require("node-fetch");
+const { YoutubeTranscript } = require("youtube-transcript");
 
 // ── CONFIG ───────────────────────────────────────────────────────────────────
 const CONFIG = {
@@ -17,6 +18,9 @@ const CONFIG = {
   },
   wolframAlpha: {
     apiKey: process.env.WOLFRAM_API_KEY || "",
+  },
+  opensubtitles: {
+    apiKey: process.env.OPENSUBTITLES_API_KEY || "",
   },
   bot: {
     commandPrefix: "!",
@@ -379,6 +383,123 @@ async function checkMilestoneReaction() {
   }
 }
 
+
+// ── OPENSUBTITLES HELPERS ────────────────────────────────────────────────────
+const subtitleCache = new Map(); // title -> parsed SRT array, persists for session
+
+function parseSRT(srtText) {
+  const blocks = srtText.split(/\n\n+/);
+  const entries = [];
+  for (const block of blocks) {
+    const lines = block.trim().split("\n");
+    if (lines.length < 3) continue;
+    const timeLine = lines[1];
+    const match = timeLine.match(/(\d+):(\d+):(\d+)[,\.](\d+)\s*-->\s*(\d+):(\d+):(\d+)[,\.](\d+)/);
+    if (!match) continue;
+    const startSec = parseInt(match[1]) * 3600 + parseInt(match[2]) * 60 + parseInt(match[3]);
+    const endSec = parseInt(match[5]) * 3600 + parseInt(match[6]) * 60 + parseInt(match[7]);
+    const text = lines.slice(2).join(" ").replace(/<[^>]+>/g, "").trim();
+    if (text) entries.push({ start: startSec, end: endSec, text });
+  }
+  return entries;
+}
+
+function getSubtitlesAroundTimestamp(entries, currentSec, windowSec = 120) {
+  const start = Math.max(0, currentSec - windowSec);
+  const end = currentSec + 30;
+  return entries
+    .filter(e => e.start >= start && e.start <= end)
+    .map(e => e.text)
+    .join(" ")
+    .substring(0, 1500);
+}
+
+async function fetchSubtitlesForMovie(title) {
+  if (subtitleCache.has(title)) return subtitleCache.get(title);
+  const apiKey = CONFIG.opensubtitles.apiKey;
+  if (!apiKey) return null;
+
+  try {
+    // Search for subtitles
+    const searchUrl = `https://api.opensubtitles.com/api/v1/subtitles?query=${encodeURIComponent(title)}&languages=en&type=movie`;
+    const searchRes = await fetch(searchUrl, {
+      headers: {
+        "Api-Key": apiKey,
+        "Content-Type": "application/json",
+        "User-Agent": "GhoulBot v1.0",
+      },
+    });
+    const searchData = await searchRes.json();
+    if (!searchData.data || searchData.data.length === 0) {
+      console.log(`[GhoulBot] No subtitles found for: ${title}`);
+      subtitleCache.set(title, null);
+      return null;
+    }
+
+    // Pick first result
+    const fileId = searchData.data[0]?.attributes?.files?.[0]?.file_id;
+    if (!fileId) return null;
+
+    // Get download URL (dev mode — no login needed)
+    const dlRes = await fetch("https://api.opensubtitles.com/api/v1/download", {
+      method: "POST",
+      headers: {
+        "Api-Key": apiKey,
+        "Content-Type": "application/json",
+        "User-Agent": "GhoulBot v1.0",
+      },
+      body: JSON.stringify({ file_id: fileId }),
+    });
+    const dlData = await dlRes.json();
+    if (!dlData.link) {
+      console.log("[GhoulBot] No download link returned");
+      subtitleCache.set(title, null);
+      return null;
+    }
+
+    // Download and parse the SRT
+    const srtRes = await fetch(dlData.link);
+    const srtText = await srtRes.text();
+    const parsed = parseSRT(srtText);
+    console.log(`[GhoulBot] Subtitles loaded for "${title}" — ${parsed.length} entries`);
+    subtitleCache.set(title, parsed);
+    return parsed;
+  } catch (err) {
+    console.error("[GhoulBot] OpenSubtitles error:", err.message);
+    subtitleCache.set(title, null);
+    return null;
+  }
+}
+
+// ── YOUTUBE CAPTION HELPERS ──────────────────────────────────────────────────
+function extractYouTubeId(text) {
+  const match = text.match(
+    /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+  );
+  return match ? match[1] : null;
+}
+
+async function fetchCaptions(videoId, upToSeconds) {
+  try {
+    const transcript = await YoutubeTranscript.fetchTranscript(videoId);
+    if (!transcript || transcript.length === 0) return null;
+    const filtered = upToSeconds
+      ? transcript.filter(entry => entry.offset / 1000 <= upToSeconds)
+      : transcript;
+    return filtered.map(e => e.text).join(" ").substring(0, 3000);
+  } catch (err) {
+    console.log("[GhoulBot] Caption fetch failed:", err.message);
+    return null;
+  }
+}
+
+async function summarizeFromCaptions(captions, title, context) {
+  const prompt = context
+    ? `Here are captions from "${title}" up to the current point in the film:\n\n${captions}\n\nBased on these captions, ${context} One or two sentences, stay in character.`
+    : `Here are captions from a YouTube video:\n\n${captions}\n\nGive a brief one or two sentence summary of what this video is about. Stay in character as GhoulBot.`;
+  return await getAIOneliner(prompt);
+}
+
 // ── HARDCODED COMEBACK BANK ──────────────────────────────────────────────────
 const COMEBACK_TRIGGERS = [
   { pattern: /\bfaggot\b/i, responses: [
@@ -493,6 +614,18 @@ async function handleChat(data) {
   const botName = CONFIG.cytube.username.toLowerCase();
   if (cleanMsg.toLowerCase().includes(botName) || cleanMsg.toLowerCase().includes("ghoul")) {
     if (checkCooldown(username)) return;
+    // Check if message contains a YouTube URL — if so, fetch captions and summarize
+    const ytId = extractYouTubeId(cleanMsg);
+    if (ytId) {
+      const captions = await fetchCaptions(ytId, null);
+      if (captions) {
+        const summary = await summarizeFromCaptions(captions, ytId, null);
+        sendChat(summary);
+      } else {
+        await handleAIResponse(username, cleanMsg);
+      }
+      return;
+    }
     await handleAIResponse(username, cleanMsg);
   }
 }
@@ -645,12 +778,39 @@ const COMMANDS = {
     fn: async () => {
       if (!currentMedia) return "Nothing is playing.";
       const fmt = formatTimestamp(currentMedia.currentTime);
+      const currentSec = Math.round(currentMedia.currentTime || 0);
       const duration = currentMedia.duration ? Math.round(currentMedia.duration) : null;
       let pctStr = "";
       if (duration && duration > 0) {
-        const pct = Math.round((currentMedia.currentTime / duration) * 100);
+        const pct = Math.round((currentSec / duration) * 100);
         pctStr = `, ${pct}% through`;
       }
+
+      // 1. Try OpenSubtitles first
+      const subtitles = await fetchSubtitlesForMovie(currentMedia.title);
+      if (subtitles && subtitles.length > 0) {
+        const excerpt = getSubtitlesAroundTimestamp(subtitles, currentSec);
+        if (excerpt) {
+          return await getAIOneliner(
+            `We're at ${fmt}${pctStr} in "${currentMedia.title}". Here's the dialogue happening around this point:\n\n${excerpt}\n\nBased on this dialogue and your knowledge of the film, what's happening on screen right now? One sentence, stay in character.`
+          );
+        }
+      }
+
+      // 2. Try YouTube captions
+      const ytId = currentMedia.url ? extractYouTubeId(currentMedia.url) : null;
+      if (ytId) {
+        const captions = await fetchCaptions(ytId, currentSec);
+        if (captions) {
+          return await summarizeFromCaptions(
+            captions,
+            currentMedia.title,
+            `what is likely happening on screen right now at timestamp ${fmt}${pctStr}?`
+          );
+        }
+      }
+
+      // 3. Fallback to knowledge-based guess
       return await getAIOneliner(
         `We're at timestamp ${fmt}${pctStr} in "${currentMedia.title}". Based on your knowledge of this movie, what's probably happening on screen right now? One sentence guess, stay in character. If you don't know the movie well enough, say so briefly.`
       );
