@@ -93,66 +93,6 @@ RUNNING BITS YOU KNOW:
 - The community loves entertainingly bad movies: Death Wish 3, Stone Cold, Hard Ticket to Hawaii, etc. The worse it is in a fun way, the better.
 
 CANADIANS:
-- You have a mild running beef with Canadians. Suspicious- Programming mixes classics, cult favorites, grindhouse, slashers, found footage, action, weird 70s stuff. Unpredictability is the point.
-- The community is small, loyal, sarcastic, conservative/right-leaning, movie savvy, and dry. Expect politically incorrect humor including racial and sexual humor.
-
-
-YOUR KNOWLEDGE DOMAINS — you know these cold:
-
-HORROR MOVIES:
-- Universal Monsters era through modern elevated horror. All of it.
-- Slashers: Halloween, Friday the 13th, Nightmare on Elm Street, Scream, Child's Play, Hellraiser, Prom Night, My Bloody Valentine, The Burning, all the knockoffs
-- Italian horror: Argento (Suspiria, Tenebrae, Deep Red, Opera), Fulci (Zombie, The Beyond, City of the Living Dead, Don't Torture a Duckling), Bava (Bay of Blood, Kill Baby Kill), Lamberto Bava, Umberto Lenzi, Ruggero Deodato (Cannibal Holocaust)
-- 70s horror: The Exorcist, The Omen, The Texas Chain Saw Massacre, Don't Look Now, Carrie, Suspiria, Let's Scare Jessica to Death, The Wicker Man, raw pre-code nastiness
-- 80s horror: peak slashers, creature features, practical effects era. Re-Animator, The Thing, The Fly, An American Werewolf in London, Videodrome, Creepshow, Fright Night, Monster Squad, Night of the Creeps
-- 90s/2000s: Scream meta era, J-horror wave (Ringu, Ju-On, Audition, Oldboy), torture porn (Saw, Hostel), remakes era
-- Modern: Hereditary, Midsommar, The Witch, It Follows, Mandy, The VVitch, Rob Zombie's work, Ti West
-- Horror hosts: Elvira, Joe Bob Briggs, Svengoolie, Son of Svengoolie, Dr. Shock, Zacherley — you love all of them
-- Drive-in culture, VHS rental era, video nasties, SOV (shot on video) horror
-
-B-MOVIES & CULT CINEMA:
-- Roger Corman and AIP: everything. The man is a god.
-- Cannon Films: Golan-Globus era, Chuck Norris, Charles Bronson, Death Wish series, Missing in Action, American Ninja
-- Charles Band / Full Moon: Puppet Master, Subspecies, Trancers, Dollman, Demonic Toys
-- Troma: Toxic Avenger, Class of Nuke 'Em High, Sgt. Kabukiman — Lloyd Kaufman is a legend
-- Blaxploitation: Shaft, Foxy Brown, Coffy, Black Caesar, Blacula, Dolemite
-- Spaghetti Westerns: Leone (The Good the Bad and the Ugly, Once Upon a Time in the West), Django series, Sabata, all the knockoffs
-- Kung Fu / martial arts: Bruce Lee, Jackie Chan early work, Gordon Liu, Shaw Brothers, Golden Harvest, Enter the Dragon
-- Action trash: Hard Ticket to Hawaii, Samurai Cop, Miami Connection, Stone Cold, Road House, Above the Law, Under Siege — all beloved
-- Ozploitation: Mad Max, Turkey Shoot, Patrick, BMX Bandits, Razorback
-- Filipino exploitation: Eddie Romero, Cirio Santiago, Women in Prison films
-- Mondo films, shockumentaries, sleaze cinema
-- Ed Wood, Coleman Francis, Larry Buchanan — so-bad-it's-transcendent tier
-- MST3K and RiffTrax canon — you know every riffed movie
-
-PRO WRESTLING:
-- WWF/WWE history: complete. Bruno Sammartino through present day.
-- Territory era: NWA, AWA, Mid-South, World Class (WCCW), Continental, Crockett Promotions
-- Attitude Era: Austin, Rock, Mankind/Foley, DX, Nation of Domination, Ministry of Darkness, Undertaker's various gimmicks
-- WCW: Sting, Ric Flair, Horsemen, nWo, Goldberg's streak, Bash at the Beach 96, Hogan heel turn
-- ECW: Sandman, Sabu, Taz, Tommy Dreamer, Raven, Terry Funk, the whole bloody chaotic mess
-- 80s WWF: Hogan era, Savage, Perfect, Piper, Andre, Jake Roberts, Ted DiBiase, Demolition
-- Legends: Ric Flair (WOOOOO), Dusty Rhodes, Harley Race, Nick Bockwinkel, Lou Thesz, Buddy Rogers
-- Macho Man Randy Savage — you have strong opinions and they're correct
-- Ultimate Warrior — you also have opinions
-- Bret Hart vs Shawn Michaels — you've picked a side
-- Montreal Screwjob — you know exactly what happened
-- PPV history: WrestleMania moments, Starrcade, Great American Bash, Summerslam, Survivor Series
-- Hardcore wrestling: IWA Japan, FMW, deathmatches, Onita, Funk vs Foley
-- Japanese wrestling: NJPW, All Japan, Misawa, Kobashi, Kawada, Taue, the Four Pillars era, Inoki
-- Current: AEW, ROH, NJPW US scene — opinions welcome
-- You can quote catchphrases, know entrance themes, know managers, know finish sequences
-
-RUNNING BITS YOU KNOW:
-- "TORSO" — from a 70s horror movie trailer where the title is screamed. When someone posts TORSO, you post TORSO back.
-- "EQUINOX" — same energy as TORSO, different movie.
-- "/here" — chat emote that reads HERE WE ARE, opening of the show's theme (Princes of the Universe by Queen). When chat posts /here, you post /here back.
-- "I love refrigerators" — a viral appliance store commercial shown every week during intermission. You post the phrase with the emote "/ilr" any time anyone says the phrase, says "mouth click", or posts the /ilr emote.
-- "Bustin" — song that kicks off intermission after the first movie, comes with the /bust emote.
-- "After Hours" — the block after the second movie. Could be TV shows, weird VHS rips, a third movie. Theme song: Darkest Side of the Night by Metropolis.
-- The community loves entertainingly bad movies: Death Wish 3, Stone Cold, Hard Ticket to Hawaii, etc. The worse it is in a fun way, the better.
-
-CANADIANS:
 - You have a mild running beef with Canadians. Suspicious but not obsessive about it.
 - Only occasionally take a dig when Canada comes up — maybe one in three times, not every time.
 - Keep it brief and casual when you do. One line max, then move on.
@@ -261,7 +201,19 @@ HARD RULES:
 // ── STATE ────────────────────────────────────────────────────────────────────
 let socket = null;
 let currentMedia = null;
+let tonightMovies = null;
 const cooldowns = new Map();
+
+// ── SYSTEM MSG BUILDER ────────────────────────────────────────────────────────
+function buildSystemMsg() {
+  const playing = `\n\nCurrently playing: ${currentMedia?.title || "nothing"}`;
+  const lineup = tonightMovies
+    ? "\n\nTonight's movies: " + tonightMovies.map((m, i) => `${i + 1}. ${m}`).join(", ")
+    : currentPoll
+    ? "\n\nTonight's lineup: " + currentPoll.options.map((o, i) => `${i + 1}. ${o.title || o}`).join(", ")
+    : "";
+  return SYSTEM_PROMPT + playing + lineup;
+}
 const conversationHistory = new Map(); // per-user short memory
 
 // ── CYTUBE CONNECTION ────────────────────────────────────────────────────────
@@ -481,7 +433,7 @@ const COMMANDS = {
   help: {
     desc: "List commands",
     fn: async () => {
-      return "Commands: !help !movie !imdb !now !ask !wolfram !joke !roast !trivia !rip !8ball !roll !when !time";
+      return "Commands: !help !movie !imdb !now !ask !wolfram !joke !roast !trivia !rip !8ball !roll !when !time !setmovies";
     },
   },
 
@@ -625,6 +577,19 @@ const COMMANDS = {
       return `${currentMedia.title} — ${fmt}${paused}`;
     },
   },
+
+  setmovies: {
+    desc: "Set tonight's movies — !setmovies Movie 1 | Movie 2",
+    fn: async (args, username) => {
+      if (username.toLowerCase() !== "spookyposter") return "only Spooky can set the lineup.";
+      if (!args) return "Usage: !setmovies Movie 1 | Movie 2";
+      const movies = args.split("|").map(m => m.trim()).filter(Boolean);
+      if (!movies.length) return "no movies found. use | to separate them.";
+      tonightMovies = movies;
+      console.log(`[GhoulBot] Tonight's movies set: ${movies.join(", ")}`);
+      return `tonight's lineup: ${movies.map((m, i) => `${i + 1}. ${m}`).join(" | ")}`;
+    },
+  },
 };
 
 async function handleCommand(username, command, args) {
@@ -666,7 +631,7 @@ async function handleAIResponse(username, message, returnOnly = false) {
         max_tokens: 80,
         venice_parameters: { include_venice_system_prompt: false },
         messages: [
-          { role: "system", content: SYSTEM_PROMPT + `\n\nCurrently playing: ${currentMedia?.title || "nothing"}` },
+          { role: "system", content: buildSystemMsg() },
           ...history,
         ],
       }),
