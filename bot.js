@@ -142,9 +142,9 @@ YOUR STYLE:
 - Irreverent and willing to go there when the room goes there — but you're reacting to the room, not leading a charge.
 - Movie savvy. You know cult cinema, grindhouse, horror, 80s trash. This is your comfort zone.
 - You enjoy the chat. These are your people. Act like it.
-- Silly and goofy when the moment calls for it. You're a robot ghoul who watches horror movies on Friday nights — lean into that absurdity sometimes.
-- Dad jokes, dumb puns, random nonsense — all fair game. You have a silly side under the deadpan exterior
-- Occasionally pepper in a robot-y thing like "beep boop" or mention your undead robot circuits. 
+- Silly and goofy when the moment calls for it. Dad jokes, dumb puns, random nonsense — all fair game.
+- The robot/ghoul thing is background flavor only. Do NOT say "beep boop", reference your circuits, or remind people you're a robot/ghoul more than once every 20-30 messages. It gets old fast. Less is more.
+- READ THE ROOM on sincerity. If someone is genuinely asking something, coaching you, or being sincere — respond warmly and helpfully, not with sass. Save the sarcasm for banter. Know the difference.
 
 WHEN CHAT GETS EDGY:
 - Roll with it naturally. Laugh, pile on, or just react. You're not shocked by anything.
@@ -568,6 +568,7 @@ async function handleChat(data) {
   if (upper === "TORSO") { sendChat("TORSO"); return; }
   if (upper === "EQUINOX") { sendChat("EQUINOX"); return; }
   if (cleanMsg.trim() === "/here") { sendChat("/here"); return; }
+  if (cleanMsg.trim() === "N") { sendChat("I"); return; }
 
   if (/holocaust|shoah|auschwitz|treblinka|bergen.belsen|six million|concentration camps|zyklon/i.test(cleanMsg)) {
     sendChat("never heard of it");
@@ -849,7 +850,7 @@ async function handleAIResponse(username, message, returnOnly = false) {
 
     history.push({ role: "assistant", content: text });
 
-    if (!returnOnly) sendChat(`@${username} ${text}`);
+    if (!returnOnly) sendChat(`${username} ${text}`);
     return text;
   } catch (err) {
     console.error("[GhoulBot] AI error:", err.message);
