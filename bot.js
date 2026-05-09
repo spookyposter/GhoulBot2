@@ -821,6 +821,8 @@ async function handleAIResponse(username, message, returnOnly = false) {
       body: JSON.stringify({
         model: "venice-uncensored",
         max_tokens: 80,
+        frequency_penalty: 0.8,
+        presence_penalty: 0.6,
         venice_parameters: { include_venice_system_prompt: false, enable_web_search: "auto" },
         messages: [
           { role: "system", content: buildSystemMsg() },
@@ -874,6 +876,8 @@ async function getAIOneliner(prompt) {
     body: JSON.stringify({
       model: "venice-uncensored",
       max_tokens: 80,
+      frequency_penalty: 0.8,
+      presence_penalty: 0.6,
       venice_parameters: { include_venice_system_prompt: false, enable_web_search: "auto" },
       messages: [
         { role: "system", content: buildSystemMsg() },
